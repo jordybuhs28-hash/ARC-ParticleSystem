@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run ParticleApp",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/ParticleApp.exe",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "MIMode": "gdb",
+      "preLaunchTask": "build"
+    }
+  ]
+}

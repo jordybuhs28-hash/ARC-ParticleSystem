@@ -1,0 +1,52 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build",
+      "type": "shell",
+      "command": "g++",
+      "args": [
+        "-std=c++17",
+        "-Wall",
+        "-O2",
+        "src/*.cpp",
+        "-o",
+        "bin/ParticleApp.exe",
+        "-IC:/Users/jordy/OneDrive/Desktop/ARC-ParticleSystem/src",
+        "-IC:/Users/jordy/OneDrive/Desktop/ARC-ParticleSystem/SFML-2.4.0/include",
+        "-LC:/Users/jordy/OneDrive/Desktop/ARC-ParticleSystem/SFML-2.4.0/lib",
+        "-lsfml-graphics",
+        "-lsfml-window",
+        "-lsfml-system"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": ["$gcc"],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "copy-sfml-dlls",
+      "type": "shell",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "xcopy /y /d \"SFML-2.4.0\\bin\\sfml-graphics-2.dll\" \"bin\\\" && xcopy /y /d \"SFML-2.4.0\\bin\\sfml-window-2.dll\" \"bin\\\" && xcopy /y /d \"SFML-2.4.0\\bin\\sfml-system-2.dll\" \"bin\\\""
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "build-and-copy",
+      "dependsOn": ["build", "copy-sfml-dlls"],
+      "group": "build"
+    }
+  ]
+}
+
+
+
