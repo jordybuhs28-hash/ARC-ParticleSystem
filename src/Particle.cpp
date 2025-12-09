@@ -9,7 +9,7 @@ Particle::Particle(sf::RenderWindow& window, int numPoints, sf::Vector2i mousePi
     // Randomized outer color
     outerColor_ = sf::Color(std::rand() % 256, std::rand() % 256, std::rand() % 256);
 
-    // Center position
+    // Center position (start at click point)
     center_ = sf::Vector2f(static_cast<float>(mousePix.x), static_cast<float>(mousePix.y));
 
     // Build geometry points around the center
@@ -20,10 +20,10 @@ Particle::Particle(sf::RenderWindow& window, int numPoints, sf::Vector2i mousePi
         points_[i] = sf::Vector2f(std::cos(angle) * radius, std::sin(angle) * radius);
     }
 
-    // Randomized initial velocity
+    // Randomized initial velocity (slight upward kick)
     velocity_ = sf::Vector2f((std::rand() % 200 - 100), (std::rand() % -200));
 
-    ttl_ = 5.0; // seconds
+    ttl_ = MAX_TTL; // extended lifetime
     rotationSpeed_ = (std::rand() % 180) - 90; // -90 to +90 deg/sec
     shrinkRate_ = 0.5;
 }
@@ -32,11 +32,15 @@ void Particle::update(double dt, sf::RenderWindow& window) {
     ttl_ -= dt;
     if (ttl_ <= 0) return;
 
-    // Gravity
-    velocity_.y += 300.0f * static_cast<float>(dt);
+    // Gravity (vertical acceleration)
+    velocity_.y += GRAVITY * static_cast<float>(dt);
 
-    // Move center
-    center_ += velocity_ * static_cast<float>(dt);
+    // Vertical descent
+    center_.y += velocity_.y * static_cast<float>(dt);
+
+    // Horizontal S-shaped sway based on vertical position
+    float sOffset = S_AMPLITUDE * std::sin(center_.y * S_FREQUENCY);
+    center_.x += sOffset * static_cast<float>(dt);
 
     // Rotate points around center
     float theta = rotationSpeed_ * static_cast<float>(dt) * M_PI / 180.0f;
@@ -74,7 +78,7 @@ void Particle::unitTests() {
         double xr = x * std::cos(theta) - y * std::sin(theta);
         double yr = x * std::sin(theta) + y * std::cos(theta);
         bool pass = almostEqual(xr, 0.0) && almostEqual(yr, 1.0);
-        std::cout << "[Rotation 90°] " << (pass ? "PASS" : "FAIL") << "\n";
+        std::cout << "[Rotation 90 deg] " << (pass ? "PASS" : "FAIL") << "\n";
     }
 
     // Scaling test
@@ -96,7 +100,7 @@ void Particle::unitTests() {
     // Gravity test
     {
         double vy0 = 0.0;
-        double g = 300.0;
+        double g = GRAVITY;
         double dt = 0.016;
         double vy1 = vy0 + g * dt;
         bool pass = almostEqual(vy1, g * dt);
@@ -110,7 +114,7 @@ void Particle::draw(sf::RenderTarget& target, sf::RenderStates states) const {
     // TriangleFan: center + outer points
     sf::VertexArray fan(sf::TriangleFan, numPoints_ + 1);
 
-    // Center vertex (white)
+    // Center vertex (white for sparkle)
     fan[0].position = center_;
     fan[0].color = sf::Color::White;
 
