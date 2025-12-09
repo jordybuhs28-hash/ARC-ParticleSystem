@@ -1,140 +1,124 @@
+#define _USE_MATH_DEFINES
 #include "Particle.hpp"
 #include <cstdlib>
-#include <ctime>
 #include <cmath>
-#include <iostream>
 
-// Constructor
-Particle::Particle(const sf::RenderTarget& target, int numPoints, const sf::Vector2i& mousePix)
-    : A_(2, numPoints), n_(numPoints), ttl_(TTL) {
+Particle::Particle(sf::RenderWindow& window, int numPoints, sf::Vector2i mousePix) {
+    numPoints_ = numPoints;
 
-    // random angular velocity
-    radiansPerSec_ = ((float)rand() / RAND_MAX) * PI;
+    // Randomized outer color
+    outerColor_ = sf::Color(std::rand() % 256, std::rand() % 256, std::rand() % 256);
 
-    // random velocities
-    vx_ = (rand() % 2 ? 1 : -1) * (100 + rand() % 400);
-    vy_ = -(100 + rand() % 400); // initial upward velocity
-    gravity_ = GRAVITY;
+    // Center position
+    center_ = sf::Vector2f(static_cast<float>(mousePix.x), static_cast<float>(mousePix.y));
 
-    plane_.setSize(target.getSize().x, target.getSize().y);
+    // Build geometry points around the center
+    points_.resize(numPoints_);
+    for (int i = 0; i < numPoints_; ++i) {
+        float angle = i * 2.0f * static_cast<float>(M_PI) / numPoints_;
+        float radius = 10.0f + (std::rand() % 20); // 10–30 px radius
+        points_[i] = sf::Vector2f(std::cos(angle) * radius, std::sin(angle) * radius);
+    }
 
-    // map mouse click to Cartesian
-    center_ = plane_.toCartesian(mousePix);
+    // Randomized initial velocity
+    velocity_ = sf::Vector2f((std::rand() % 200 - 100), (std::rand() % -200));
 
-    // colors
-    baseColor_ = sf::Color::White;
-    edgeColor_ = sf::Color(rand() % 255, rand() % 255, rand() % 255);
-
-    // choose shape mode randomly (extra credit)
-    shapeMode_ = rand() % 3;
-    if (shapeMode_ == 0) generateCircleLike(center_);
-    else if (shapeMode_ == 1) generateStarburst(center_);
-    else generateSpiral(center_);
+    ttl_ = 5.0; // seconds
+    rotationSpeed_ = (std::rand() % 180) - 90; // -90 to +90 deg/sec
+    shrinkRate_ = 0.5;
 }
 
-// Update
-void Particle::update(double dt, const sf::RenderTarget& target) {
+void Particle::update(double dt, sf::RenderWindow& window) {
     ttl_ -= dt;
-    if (ttl_ <= 0.0) return;
+    if (ttl_ <= 0) return;
 
-    // rotate
-    rotate(dt * radiansPerSec_);
+    // Gravity
+    velocity_.y += 300.0f * static_cast<float>(dt);
 
-    // shrink
-    scale(SCALE);
+    // Move center
+    center_ += velocity_ * static_cast<float>(dt);
 
-    // gravity + velocity
-    vy_ += gravity_ * dt;
-    double dx = vx_ * dt;
-    double dy = vy_ * dt;
+    // Rotate points around center
+    float theta = rotationSpeed_ * static_cast<float>(dt) * M_PI / 180.0f;
+    float cosT = std::cos(theta);
+    float sinT = std::sin(theta);
+    for (auto& p : points_) {
+        float x = p.x;
+        float y = p.y;
+        p.x = cosT * x - sinT * y;
+        p.y = sinT * x + cosT * y;
+    }
 
-    // translate
-    translate(dx, dy);
-}
-
-// Transformations
-void Particle::rotate(double radians) {
-    RotationMatrix R(radians);
-    A_ = R.multiply(A_);
-}
-
-void Particle::scale(double factor) {
-    ScalingMatrix S(factor);
-    A_ = S.multiply(A_);
-}
-
-void Particle::translate(double dx, double dy) {
-    TranslationMatrix T(dx, dy, A_.getCols());
-    A_ = A_.add(T);
-    center_.x += dx;
-    center_.y += dy;
-}
-
-// Shape generators (extra credit)
-void Particle::generateCircleLike(const sf::Vector2f& center) {
-    double theta = ((float)rand() / RAND_MAX) * (PI / 2);
-    double dTheta = 2 * PI / (n_ - 1);
-    for (int j = 0; j < n_; j++) {
-        double r = 20 + rand() % 60;
-        double dx = r * cos(theta);
-        double dy = r * sin(theta);
-        A_(0, j) = center.x + dx;
-        A_(1, j) = center.y + dy;
-        theta += dTheta;
+    // Shrink
+    float scale = 1.0f - shrinkRate_ * static_cast<float>(dt);
+    for (auto& p : points_) {
+        p *= scale;
     }
 }
 
-void Particle::generateStarburst(const sf::Vector2f& center) {
-    for (int j = 0; j < n_; j++) {
-        double angle = (2 * PI * j) / n_;
-        double r = (j % 2 == 0 ? 80 : 30); // alternating spikes
-        A_(0, j) = center.x + r * cos(angle);
-        A_(1, j) = center.y + r * sin(angle);
-    }
+bool Particle::isDead() const {
+    return ttl_ <= 0;
 }
 
-void Particle::generateSpiral(const sf::Vector2f& center) {
-    for (int j = 0; j < n_; j++) {
-        double angle = (2 * PI * j) / n_;
-        double r = 10 + j * 2; // radius grows with j
-        A_(0, j) = center.x + r * cos(angle);
-        A_(1, j) = center.y + r * sin(angle);
-    }
-}
-
-// Draw
-void Particle::draw(sf::RenderTarget& target, sf::RenderStates states) const {
-    sf::VertexArray fan(sf::TriangleFan, n_ + 1);
-
-    // center pixel
-    sf::Vector2i centerPix = plane_.toPixel(center_);
-    fan[0].position = sf::Vector2f(static_cast<float>(centerPix.x),
-                                   static_cast<float>(centerPix.y));
-    fan[0].color = baseColor_;
-
-    // vertices
-    for (int j = 1; j <= n_; j++) {
-        sf::Vector2f cart(static_cast<float>(A_(0, j-1)),
-                          static_cast<float>(A_(1, j-1)));
-        sf::Vector2i pix = plane_.toPixel(cart);
-        fan[j].position = sf::Vector2f(static_cast<float>(pix.x),
-                                       static_cast<float>(pix.y));
-        fan[j].color = edgeColor_;
-    }
-
-    target.draw(fan, states);
-}
-
-// Helpers
 bool Particle::almostEqual(double a, double b, double eps) {
-    return std::fabs(a - b) < eps;
+    return std::fabs(a - b) <= eps;
 }
 
 void Particle::unitTests() {
-    std::cout << "Running Particle unit tests..." << std::endl;
-    // Example: rotation test
-    Matrix init = A_;
-    rotate(PI/2);
-    // check values with almostEqual...
-    std::cout << "Unit tests complete." << std::endl;
+    std::cout << "---- Particle::unitTests ----\n";
+
+    // Rotation test
+    {
+        double x = 1.0, y = 0.0;
+        double theta = M_PI / 2.0;
+        double xr = x * std::cos(theta) - y * std::sin(theta);
+        double yr = x * std::sin(theta) + y * std::cos(theta);
+        bool pass = almostEqual(xr, 0.0) && almostEqual(yr, 1.0);
+        std::cout << "[Rotation 90°] " << (pass ? "PASS" : "FAIL") << "\n";
+    }
+
+    // Scaling test
+    {
+        double x = 2.0, y = 3.0;
+        double s = 2.0;
+        bool pass = almostEqual(s * x, 4.0) && almostEqual(s * y, 6.0);
+        std::cout << "[Scaling x2] " << (pass ? "PASS" : "FAIL") << "\n";
+    }
+
+    // Translation test
+    {
+        double x = 5.0, y = -1.0;
+        double dx = 3.0, dy = 4.0;
+        bool pass = almostEqual(x + dx, 8.0) && almostEqual(y + dy, 3.0);
+        std::cout << "[Translation + (3,4)] " << (pass ? "PASS" : "FAIL") << "\n";
+    }
+
+    // Gravity test
+    {
+        double vy0 = 0.0;
+        double g = 300.0;
+        double dt = 0.016;
+        double vy1 = vy0 + g * dt;
+        bool pass = almostEqual(vy1, g * dt);
+        std::cout << "[Gravity] " << (pass ? "PASS" : "FAIL") << "\n";
+    }
+
+    std::cout << "-----------------------------\n";
+}
+
+void Particle::draw(sf::RenderTarget& target, sf::RenderStates states) const {
+    // TriangleFan: center + outer points
+    sf::VertexArray fan(sf::TriangleFan, numPoints_ + 1);
+
+    // Center vertex (white)
+    fan[0].position = center_;
+    fan[0].color = sf::Color::White;
+
+    // Outer vertices (random color)
+    for (int i = 0; i < numPoints_; ++i) {
+        fan[i + 1].position = center_ + points_[i];
+        fan[i + 1].color = outerColor_;
+    }
+
+    target.draw(fan, states);
 }

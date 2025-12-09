@@ -1,18 +1,21 @@
 #pragma once
 #include <SFML/Graphics.hpp>
-#include "Particle.hpp"
 #include <vector>
+#include "Particle.hpp"
 
 class Engine {
 public:
-    Engine(int width, int height);
+    Engine(unsigned width, unsigned height);
     void run();
 
 private:
-    sf::RenderWindow window_;
-    std::vector<Particle> particles_;
+    sf::RenderWindow m_Window;
+    sf::Clock m_Clock;
 
-    void processEvents();
-    void update(double dt);
-    void render();
+    std::vector<Particle> m_particles;
+
+    // Core loop methods
+    void input();              // handle events
+    void update(double dt);    // advance particles
+    void draw();               // render particles
 };
