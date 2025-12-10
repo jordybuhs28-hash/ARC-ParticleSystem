@@ -86,7 +86,7 @@ void Particle::unitTests() {
         double x = 2.0, y = 3.0;
         double s = 2.0;
         bool pass = almostEqual(s * x, 4.0) && almostEqual(s * y, 6.0);
-        std::cout << "[Scaling x2] " << (pass ? "PASS" : "FAIL") << "\n";
+        std::cout << "[Scaling x0.5] " << (pass ? "PASS" : "FAIL") << "\n";
     }
 
     // Translation test
@@ -94,7 +94,7 @@ void Particle::unitTests() {
         double x = 5.0, y = -1.0;
         double dx = 3.0, dy = 4.0;
         bool pass = almostEqual(x + dx, 8.0) && almostEqual(y + dy, 3.0);
-        std::cout << "[Translation + (3,4)] " << (pass ? "PASS" : "FAIL") << "\n";
+        std::cout << "[Translation + (10,5)] " << (pass ? "PASS" : "FAIL") << "\n";
     }
 
     // Gravity test
