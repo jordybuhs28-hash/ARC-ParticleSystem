@@ -3,28 +3,44 @@
 #include <cstdlib>
 #include <cmath>
 
-Particle::Particle(sf::RenderWindow& window, int numPoints, sf::Vector2i mousePix) {
+Particle::Particle(sf::RenderWindow& window, int numPoints, sf::Vector2i mousePix, ShapeType shape)
+    : shapeType_(shape) {
     numPoints_ = numPoints;
 
     // Randomized outer color
     outerColor_ = sf::Color(std::rand() % 256, std::rand() % 256, std::rand() % 256);
 
-    // Center position (start at click point)
+    // Center position
     center_ = sf::Vector2f(static_cast<float>(mousePix.x), static_cast<float>(mousePix.y));
 
-    // Build geometry points around the center
+    // Build geometry points based on shape type
     points_.resize(numPoints_);
-    for (int i = 0; i < numPoints_; ++i) {
-        float angle = i * 2.0f * static_cast<float>(M_PI) / numPoints_;
-        float radius = 10.0f + (std::rand() % 20); // 10–30 px radius
-        points_[i] = sf::Vector2f(std::cos(angle) * radius, std::sin(angle) * radius);
+    if (shapeType_ == ShapeType::Circle) {
+        for (int i = 0; i < numPoints_; ++i) {
+            float angle = i * 2.0f * static_cast<float>(M_PI) / numPoints_;
+            float radius = 20.0f;
+            points_[i] = sf::Vector2f(std::cos(angle) * radius, std::sin(angle) * radius);
+        }
+    }
+    else if (shapeType_ == ShapeType::Square) {
+        points_ = {
+            {-20.f, -20.f}, {20.f, -20.f}, {20.f, 20.f}, {-20.f, 20.f}
+        };
+        numPoints_ = 4;
+    }
+    else { // RandomPolygon
+        for (int i = 0; i < numPoints_; ++i) {
+            float angle = i * 2.0f * static_cast<float>(M_PI) / numPoints_;
+            float radius = 10.0f + (std::rand() % 30);
+            points_[i] = sf::Vector2f(std::cos(angle) * radius, std::sin(angle) * radius);
+        }
     }
 
-    // Randomized initial velocity (slight upward kick)
+    // Randomized initial velocity
     velocity_ = sf::Vector2f((std::rand() % 200 - 100), (std::rand() % -200));
 
-    ttl_ = MAX_TTL; // extended lifetime
-    rotationSpeed_ = (std::rand() % 180) - 90; // -90 to +90 deg/sec
+    ttl_ = MAX_TTL;
+    rotationSpeed_ = (std::rand() % 180) - 90;
     shrinkRate_ = 0.5;
 }
 
@@ -32,17 +48,17 @@ void Particle::update(double dt, sf::RenderWindow& window) {
     ttl_ -= dt;
     if (ttl_ <= 0) return;
 
-    // Gravity (vertical acceleration)
+    // Gravity
     velocity_.y += GRAVITY * static_cast<float>(dt);
 
     // Vertical descent
     center_.y += velocity_.y * static_cast<float>(dt);
 
-    // Horizontal S-shaped sway based on vertical position
+    // Horizontal S-shaped sway
     float sOffset = S_AMPLITUDE * std::sin(center_.y * S_FREQUENCY);
     center_.x += sOffset * static_cast<float>(dt);
 
-    // Rotate points around center
+    // Rotate points
     float theta = rotationSpeed_ * static_cast<float>(dt) * M_PI / 180.0f;
     float cosT = std::cos(theta);
     float sinT = std::sin(theta);
@@ -84,16 +100,16 @@ void Particle::unitTests() {
     // Scaling test
     {
         double x = 2.0, y = 3.0;
-        double s = 2.0;
-        bool pass = almostEqual(s * x, 4.0) && almostEqual(s * y, 6.0);
+        double s = 0.5;
+        bool pass = almostEqual(s * x, 1.0) && almostEqual(s * y, 1.5);
         std::cout << "[Scaling x0.5] " << (pass ? "PASS" : "FAIL") << "\n";
     }
 
     // Translation test
     {
         double x = 5.0, y = -1.0;
-        double dx = 3.0, dy = 4.0;
-        bool pass = almostEqual(x + dx, 8.0) && almostEqual(y + dy, 3.0);
+        double dx = 10.0, dy = 5.0;
+        bool pass = almostEqual(x + dx, 15.0) && almostEqual(y + dy, 4.0);
         std::cout << "[Translation + (10,5)] " << (pass ? "PASS" : "FAIL") << "\n";
     }
 
@@ -111,22 +127,19 @@ void Particle::unitTests() {
 }
 
 void Particle::draw(sf::RenderTarget& target, sf::RenderStates states) const {
-    // --- Glow Aura ---
+    // Glow Aura
     sf::VertexArray aura(sf::TriangleFan, numPoints_ + 1);
-
     aura[0].position = center_;
-    aura[0].color = sf::Color(outerColor_.r, outerColor_.g, outerColor_.b, 50); // faint glow
+    aura[0].color = sf::Color(outerColor_.r, outerColor_.g, outerColor_.b, 50);
 
     for (int i = 0; i < numPoints_; ++i) {
-        aura[i + 1].position = center_ + points_[i] * 1.5f; // 1.5x bigger
+        aura[i + 1].position = center_ + points_[i] * 1.5f;
         aura[i + 1].color = sf::Color(outerColor_.r, outerColor_.g, outerColor_.b, 50);
     }
-
     target.draw(aura, states);
 
-    // --- Original Particle Drawing ---
+    // Original Particle
     sf::VertexArray fan(sf::TriangleFan, numPoints_ + 1);
-
     fan[0].position = center_;
     fan[0].color = sf::Color::White;
 
@@ -134,6 +147,5 @@ void Particle::draw(sf::RenderTarget& target, sf::RenderStates states) const {
         fan[i + 1].position = center_ + points_[i];
         fan[i + 1].color = outerColor_;
     }
-
     target.draw(fan, states);
 }
