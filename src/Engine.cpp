@@ -4,12 +4,22 @@
 #include <cstdlib>
 #include <algorithm>
 
-Particle::ShapeType currentShape = Particle::ShapeType::RandomPolygon;
 
 Engine::Engine(unsigned width, unsigned height)
-    : m_Window(sf::VideoMode(width, height), "Interactive Particle System") {
+    : m_Window(sf::VideoMode(width, height), "ARC Particle System") {
     m_Window.setFramerateLimit(60);
+
+
+    // Run unit tests once at startup
+    {
+        sf::Vector2i centerPix(m_Window.getSize().x / 2, m_Window.getSize().y / 2);
+        Particle test(m_Window, 12, centerPix);
+        std::cout << "[Tests] Starting unit tests..." << std::endl;
+        test.unitTests();
+        std::cout << "[Tests] Done." << std::endl;
+    }
 }
+
 
 void Engine::run() {
     while (m_Window.isOpen()) {
@@ -20,6 +30,7 @@ void Engine::run() {
     }
 }
 
+
 void Engine::input() {
     sf::Event event;
     while (m_Window.pollEvent(event)) {
@@ -28,37 +39,42 @@ void Engine::input() {
             m_Window.close();
         }
 
-        // Switch shape modes
-        if (event.type == sf::Event::KeyPressed) {
-            if (event.key.code == sf::Keyboard::C) currentShape = Particle::ShapeType::Circle;
-            if (event.key.code == sf::Keyboard::S) currentShape = Particle::ShapeType::Square;
-            if (event.key.code == sf::Keyboard::R) currentShape = Particle::ShapeType::RandomPolygon;
-        }
 
-        // Left click spawns multiple shapes
+        // Left click spawns particles
         if (event.type == sf::Event::MouseButtonPressed &&
             event.mouseButton.button == sf::Mouse::Left) {
             sf::Vector2i mousePos(event.mouseButton.x, event.mouseButton.y);
 
-            // Spawn 3 different shapes at once
-            m_particles.emplace_back(m_Window, 30, mousePos, Particle::ShapeType::Circle);
-            m_particles.emplace_back(m_Window, 4, mousePos, Particle::ShapeType::Square);
-            int numPoints = 25 + (std::rand() % 26);
-            m_particles.emplace_back(m_Window, numPoints, mousePos, Particle::ShapeType::RandomPolygon);
 
-            // Also spawn a burst of the currently selected shape
+            // Spawn a handful of particles at click
             for (int i = 0; i < 5; ++i) {
-                int numPoints2 = 12 + (std::rand() % 12);
-                m_particles.emplace_back(m_Window, numPoints2, mousePos, currentShape);
+                int numPoints = 25 + (std::rand() % 26); // 25–50 points
+                m_particles.emplace_back(m_Window, numPoints, mousePos);
             }
         }
     }
 }
 
+
 void Engine::update(double dt) {
+    std::vector<Particle> newParticles;
+
+
     for (auto& p : m_particles) {
         p.update(dt, m_Window);
+
+
+        // If you’ve added fractal bursts:
+        // if (p.hasBurst()) {
+        //     auto children = p.burst(m_Window);
+        //     newParticles.insert(newParticles.end(), children.begin(), children.end());
+        // }
     }
+
+
+    // Add any new burst particles
+    m_particles.insert(m_particles.end(), newParticles.begin(), newParticles.end());
+
 
     // Remove dead particles
     m_particles.erase(
@@ -68,12 +84,17 @@ void Engine::update(double dt) {
     );
 }
 
+
 void Engine::draw() {
     m_Window.clear(sf::Color(20, 20, 24));
 
+
+    // Draw all particles
     for (const auto& p : m_particles) {
         m_Window.draw(p);
     }
 
+
     m_Window.display();
 }
+
